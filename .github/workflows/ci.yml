@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Smart Contracts ────────────────────────────────────────────────────────────
+  contracts:
+    name: Contracts — build, lint & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+          components: clippy
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Lint contracts (clippy)
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Build all contracts (WASM release)
+        run: cargo build --release --target wasm32v1-none
+
+      - name: Run all contract tests
+        run: cargo test --workspace -- --nocapture
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: contracts/target/wasm32v1-none/release/*.wasm
+          retention-days: 7
+
+  # ── Frontend ───────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend — lint, type-check, test & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npx eslint src --ext .ts,.tsx --max-warnings 0
+        continue-on-error: true
+
+      - name: Type-check (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        run: npm run test
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_STELLAR_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_USDC_ADDRESS: ""
+          NEXT_PUBLIC_USDT_ADDRESS: ""
+          NEXT_PUBLIC_EURC_ADDRESS: ""
+          NEXT_PUBLIC_XLM_ADDRESS: ""
+          NEXT_PUBLIC_FACTORY_ADDRESS: ""
+          NEXT_PUBLIC_ROUTER_ADDRESS: ""
+
+      - name: Build (production)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_STELLAR_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_USDC_ADDRESS: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+          NEXT_PUBLIC_USDT_ADDRESS: CA7MHOQDFUHH5CZF66YFFONG6QT6SER7KO4PD7BLXBRF3KQTCECMQ34S
+          NEXT_PUBLIC_EURC_ADDRESS: CDZEYIBQSBSFED4F56EUGZB3LOFINAQETXODVFM4CACG4UY27WKHT5OE
+          NEXT_PUBLIC_XLM_ADDRESS: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+          NEXT_PUBLIC_FACTORY_ADDRESS: CCR5FGHX3E7QLBRK6VCWEIFO4UGQEGE3C4S4C6HPDTRJ6I4DOVVYJYC6
+          NEXT_PUBLIC_ROUTER_ADDRESS: CCSFJCPDZMKYCEOROOWQDF35OZUQFITTOIO45VKMKTU4NAFZVLUS6ZZF
+          NEXT_PUBLIC_POOL_USDT_XLM: CDQQIW45ILUZ4AGGZ7W2HQEHKZQ4KSWRRC4OF5VRAU3IXXXTFY7DQM4V
+          NEXT_PUBLIC_POOL_USDT_EURC: CCIVPHQD3FJXRXY45UAYX226MD647TZLYSZEJKSOWGUMFUCMG5R2WPFV
+          NEXT_PUBLIC_API_URL: ""
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: frontend/.next/
+          retention-days: 3
+
+  # ── Backend ────────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend — type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check (TypeScript)
+        run: npx tsc --noEmit
+
+  # ── Deployment readiness gate ──────────────────────────────────────────────────
+  deploy-gate:
+    name: Deploy gate — all checks must pass
+    needs: [contracts, frontend, backend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: All checks passed
+        run: |
+          echo "✅ Contracts: built, linted, tested"
+          echo "✅ Frontend:  type-checked, tested, built"
+          echo "✅ Backend:   type-checked"
+          echo "Ready for deployment."
