@@ -119,6 +119,14 @@ Solved via Newton-Raphson iteration. At `A=100`, slippage <1 bps for swaps <0.1%
 
 ---
 
+# Screenshots
+
+## Mobile responsive 
+<img width="352" height="737" alt="Screenshot 2026-06-23 at 2 46 42 AM" src="https://github.com/user-attachments/assets/2e927130-3c68-4dfa-8625-d1651797a98b" />
+
+## CI/CD Pipelines
+<img width="1454" height="838" alt="Screenshot 2026-06-23 at 2 49 18 AM" src="https://github.com/user-attachments/assets/06f11133-6646-46db-96b9-dc474f9d802b" />
+
 ## Installation Guide
 
 ### Prerequisites
