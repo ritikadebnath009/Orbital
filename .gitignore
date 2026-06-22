@@ -4,6 +4,8 @@
 .env.*.local
 .env.production
 .env.staging
+# Allow .env.example files (no secrets, just template)
+!**/.env.example
 
 # Node
 node_modules/
