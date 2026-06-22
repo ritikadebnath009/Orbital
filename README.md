@@ -5,8 +5,10 @@ Swap stablecoins (USDC, USDT, EURC) and native XLM with near-zero slippage throu
 
 ---
 
-Live Link - https://orbitalstellar.vercel.app/
-Demo Video Link - https://www.youtube.com/watch?v=OBQrVJKmrFU
+| Resource | URL |
+|-----------|-----|
+| 🌐 Live Application | https://orbitalstellar.vercel.app/ |
+| 🎥 Demo Video | https://www.youtube.com/watch?v=OBQrVJKmrFU |
 
 ---
 
