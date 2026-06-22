@@ -5,23 +5,8 @@ Swap stablecoins (USDC, USDT, EURC) and native XLM with near-zero slippage throu
 
 ---
 
-## Table of Contents
-
-1. [Project Overview](#project-overview)  
-2. [Features](#features)  
-3. [Architecture](#architecture)  
-4. [Technology Stack](#technology-stack)  
-5. [Installation Guide](#installation-guide)  
-6. [Environment Variables](#environment-variables)  
-7. [Smart Contract Deployment Guide](#smart-contract-deployment-guide)  
-8. [Event Streaming Architecture](#event-streaming-architecture)  
-9. [Frontend Architecture](#frontend-architecture)  
-10. [Testing Instructions](#testing-instructions)  
-11. [CI/CD Pipeline Documentation](#cicd-pipeline-documentation)  
-12. [Deployment Guide](#deployment-guide)  
-13. [Troubleshooting Guide](#troubleshooting-guide)  
-14. [Demo Walkthrough](#demo-walkthrough)  
-15. [Contract Addresses & Transaction Hashes](#contract-addresses--transaction-hashes)
+Live Link - https://orbitalstellar.vercel.app/
+Demo Video Link - https://www.youtube.com/watch?v=OBQrVJKmrFU
 
 ---
 
