@@ -1,0 +1,72 @@
+{
+  "network": "testnet",
+  "deployed_at": "2026-06-09T15:55:00Z",
+  "updated_at": "2026-06-10T00:00:00Z",
+  "deployer": "GCO3ZIWK3PCMF3PQ4FUJZ3M6LXZTQOMBFG5BTDDZXTC3UOPNTKV2DG3Q",
+  "wasm_hashes": {
+    "stable_pool": "bbab930348ba15916fc00faf5dd16eeb9f4c714b8312bfd5057eb161ae736dd6",
+    "pool_factory": "f2e5f0d04f97016c2bf0223a50b3417d4ca66a011c39326cf0d0c6a5e2e2116d",
+    "router": "58de261bc4a1380a57e113234f7d6ac43fd8b1fdb9a6cecb50b564fe3b076801"
+  },
+  "contracts": {
+    "factory": "CCR5FGHX3E7QLBRK6VCWEIFO4UGQEGE3C4S4C6HPDTRJ6I4DOVVYJYC6",
+    "router": "CCSFJCPDZMKYCEOROOWQDF35OZUQFITTOIO45VKMKTU4NAFZVLUS6ZZF"
+  },
+  "tokens": {
+    "usdt": {
+      "sac": "CA7MHOQDFUHH5CZF66YFFONG6QT6SER7KO4PD7BLXBRF3KQTCECMQ34S",
+      "issuer": "GDGZB5QLF37IG5RWQYX47FAWIUMAUY6BYHMHEZCS4HLQGLGSHAKWK2GU",
+      "source": "Testnet USDT"
+    },
+    "xlm": {
+      "sac": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "issuer": null,
+      "source": "Stellar native asset"
+    },
+    "usdc": {
+      "sac": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "source": "Circle testnet — pending pool creation"
+    },
+    "eurc": {
+      "sac": "CDZEYIBQSBSFED4F56EUGZB3LOFINAQETXODVFM4CACG4UY27WKHT5OE",
+      "issuer": "GAJVZHJ5LGEK2JQLJ6RTGU7D2CBO42TDCTCERLYVAU3DNGGKRGTU6UQ3",
+      "source": "Testnet EURC"
+    }
+  },
+  "pools": {
+    "usdt_xlm": {
+      "address": "CDQQIW45ILUZ4AGGZ7W2HQEHKZQ4KSWRRC4OF5VRAU3IXXXTFY7DQM4V",
+      "token_a": "CA7MHOQDFUHH5CZF66YFFONG6QT6SER7KO4PD7BLXBRF3KQTCECMQ34S",
+      "token_b": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "amp": 100,
+      "fee_bps": 4,
+      "seed": "1000 USDT + 10000 XLM",
+      "status": "live"
+    },
+    "usdt_eurc": {
+      "address": "CCIVPHQD3FJXRXY45UAYX226MD647TZLYSZEJKSOWGUMFUCMG5R2WPFV",
+      "token_a": "CA7MHOQDFUHH5CZF66YFFONG6QT6SER7KO4PD7BLXBRF3KQTCECMQ34S",
+      "token_b": "CDZEYIBQSBSFED4F56EUGZB3LOFINAQETXODVFM4CACG4UY27WKHT5OE",
+      "amp": 100,
+      "fee_bps": 4,
+      "seed": "1000 USDT + 1000 EURC",
+      "status": "live"
+    },
+    "usdc_xlm": {
+      "address": "",
+      "token_a": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "token_b": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "amp": 100,
+      "fee_bps": 4,
+      "status": "pending — deployer needs Circle USDC from https://faucet.circle.com"
+    }
+  },
+  "notes": {
+    "xlm_faucet": "https://friendbot.stellar.org",
+    "usdc_faucet": "https://faucet.circle.com",
+    "routing": "Router supports 2-hop routes: EURC↔XLM routes via EURC/USDT + USDT/XLM pools",
+    "create_usdc_pool": "Run ./scripts/deploy_testnet.sh after getting Circle USDC to create and seed the USDC/XLM pool",
+    "mainnet_upgrade": "Replace token SAC addresses with mainnet equivalents. XLM SAC is identical on mainnet."
+  }
+}

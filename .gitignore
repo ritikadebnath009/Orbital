@@ -1,0 +1,43 @@
+# Environment secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Rust / Soroban
+target/
+*.wasm
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Soroban test output snapshots
+test_snapshots/
+
+# Deployment secrets (deployment.json is checked in — addresses are public testnet)
