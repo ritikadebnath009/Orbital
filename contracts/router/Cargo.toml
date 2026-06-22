@@ -1,0 +1,23 @@
+[package]
+name = "router"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = { version = "22.0.0", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk    = { version = "22.0.0", features = ["testutils", "alloc"] }
+stable-pool    = { path = "../stable_pool",  features = ["testutils"] }
+pool-factory   = { path = "../pool_factory", features = ["testutils"] }
+
+[features]
+testutils = [
+    "soroban-sdk/testutils",
+    "stable-pool/testutils",
+    "pool-factory/testutils",
+]
