@@ -33,41 +33,6 @@ OrbitalDEX implements the **Curve Finance StableSwap invariant** on Stellar Soro
 
 ---
 
-## Features
-
-### Smart Contracts
-- ✅ **StablePool** — Curve-style StableSwap with amplification coefficient A
-- ✅ **PoolFactory** — Deploys and registers pool instances on-chain
-- ✅ **Router** — Finds best 1-hop or 2-hop route across all pools atomically
-- ✅ **Slippage protection** — Per-swap `min_amount_out` guard on each hop
-- ✅ **Ramp A** — Smooth linear interpolation of `A` over time (Curve-compatible)
-- ✅ **Protocol fees** — Configurable split between LPs and protocol treasury
-- ✅ **Emergency pause** — Admin can halt all user operations instantly
-- ✅ **Factory pause_all** — Single call pauses every pool
-- ✅ **Two-step admin transfer** — `propose_admin` / `accept_admin` prevents admin lockout
-- ✅ **Upgrade timelock** — 48-hour delay before WASM upgrades execute
-
-### Frontend
-- ✅ Smart Router swap with 1-hop and 2-hop route display
-- ✅ Slippage tolerance control (preset + custom %)
-- ✅ Real-time quote simulation from on-chain contracts
-- ✅ Token balance display with MAX button
-- ✅ Trustline management (Freighter wallet integration)
-- ✅ Testnet faucet integration (Friendbot + Circle)
-- ✅ Pool analytics dashboard (reserves, virtual price, volume)
-- ✅ Liquidity management (add/remove with min-shares guard)
-- ✅ Transaction status indicators (pending → success/error)
-- ✅ Real-time event feed (polling Horizon API for live swaps)
-- ✅ Full mobile responsive design
-
-### Infrastructure
-- ✅ Backend event indexer (Horizon API → PostgreSQL)
-- ✅ REST API for analytics (TVL, volume, swap history)
-- ✅ GitHub Actions CI/CD pipeline
-- ✅ Automated deployment script
-
----
-
 ## Architecture
 
 ```
@@ -564,38 +529,6 @@ stellar contract invoke --network testnet --id $ROUTER_ADDRESS -- get_factory
 stellar contract invoke --network testnet --id $POOL_ADDRESS -- get_reserves
 stellar contract invoke --network testnet --id $POOL_ADDRESS -- get_virtual_price
 ```
-
----
-
-## Troubleshooting Guide
-
-### `TypeError: undefined is not a valid argument for URI`
-**Cause:** `NEXT_PUBLIC_STELLAR_RPC_URL` is not set.  
-**Fix:** Ensure `.env.local` exists and contains `NEXT_PUBLIC_STELLAR_RPC_URL`.
-
-### `No route found for this token pair`
-**Cause:** Router cannot find a 1-hop or 2-hop path between the selected tokens.  
-**Fix:** Verify pool addresses are configured in `.env.local` and pools have sufficient liquidity.
-
-### `Simulation failed: HostError: ...AlreadyInitialized`
-**Cause:** You're trying to initialize a contract that was already initialized.  
-**Fix:** Use the existing contract address instead of deploying a new one.
-
-### `Transaction confirmation timeout`
-**Cause:** Soroban RPC did not confirm the transaction within 60 seconds.  
-**Fix:** Check `https://stellar.expert/explorer/testnet` with your tx hash. If it succeeded, update UI manually. If stuck, resubmit with a higher fee.
-
-### Freighter wallet shows "Transaction rejected"
-**Cause:** The user denied the signing request, OR the network passphrase doesn't match.  
-**Fix:** Ensure `NEXT_PUBLIC_STELLAR_NETWORK=testnet` and Freighter is set to Testnet.
-
-### `cargo test` fails with `No such file stable_pool.wasm`
-**Cause:** Factory/Router tests import the pool WASM which must be pre-built.  
-**Fix:** Run `cargo build --release --target wasm32v1-none` before `cargo test --workspace`.
-
-### Pool slippage errors on large swaps
-**Cause:** Pool has insufficient liquidity for the requested swap size.  
-**Fix:** Reduce swap size, increase slippage tolerance, or wait for more liquidity.
 
 ---
 
