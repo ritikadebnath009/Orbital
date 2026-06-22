@@ -187,7 +187,7 @@ fn find_best_route(
             Err(_) => continue,
         };
 
-        let is_better = best.as_ref().map_or(true, |b| final_out > b.amount_out);
+        let is_better = best.as_ref().is_none_or(|b| final_out > b.amount_out);
         if is_better {
             // Blended fee for two-hop price impact: average of both fee rates
             let blended_fee = (fee_a + fee_b) / 2;
@@ -289,7 +289,7 @@ fn call_pool_swap(
 
 fn collect_intermediates(
     e: &Env,
-    factory: &Address,
+    _factory: &Address,
     all_pools: &Vec<Address>,
     token_in: &Address,
     token_out: &Address,

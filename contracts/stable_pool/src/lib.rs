@@ -76,7 +76,7 @@ impl StablePool {
         if token_a == token_b {
             return Err(PoolError::SameToken);
         }
-        if amp < MIN_AMP || amp > MAX_AMP {
+        if !(MIN_AMP..=MAX_AMP).contains(&amp) {
             return Err(PoolError::InvalidAmp);
         }
         if fee_bps > MAX_FEE_BPS {
@@ -122,10 +122,8 @@ impl StablePool {
         }
 
         // HIGH-3: minimum size on first deposit prevents dust LP griefing
-        if state.total_shares == 0 {
-            if amount_a < math::PRECISION || amount_b < math::PRECISION {
-                return Err(PoolError::FirstDepositBelowMinimum);
-            }
+        if state.total_shares == 0 && (amount_a < math::PRECISION || amount_b < math::PRECISION) {
+            return Err(PoolError::FirstDepositBelowMinimum);
         }
 
         let new_reserve_a = state.reserve_a + amount_a;
@@ -301,7 +299,7 @@ impl StablePool {
             }
         }
 
-        emit_swap(&e, &from, &token_in, &token_out_addr, amount_in, dy, fee, new_ra, new_rb);
+        emit_swap(&e, &from, (&token_in, &token_out_addr), (amount_in, dy, fee), (new_ra, new_rb));
 
         Ok(dy)
     }
@@ -404,7 +402,7 @@ impl StablePool {
         let admin = read_admin(&e);
         admin.require_auth();
 
-        if future_a < MIN_AMP || future_a > MAX_AMP {
+        if !(MIN_AMP..=MAX_AMP).contains(&future_a) {
             return Err(PoolError::InvalidAmp);
         }
         let now = e.ledger().timestamp();

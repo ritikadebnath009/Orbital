@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN, Env};
+use soroban_sdk::{contracttype, Address, Env};
 
 // CRIT-1 fix: TTL extended from 2 days → 180 days (instance) / 365 days (persistent).
 // Short TTLs allowed dormant-pool re-initialization attacks.
@@ -47,8 +47,6 @@ pub struct PoolState {
     pub total_shares: i128,
     pub token_a: Address,
     pub token_b: Address,
-    pub paused: bool,
-    pub admin: Address,
 }
 
 #[contracttype]
@@ -298,8 +296,6 @@ pub fn read_pool_state(e: &Env) -> PoolState {
         total_shares: read_total_shares(e),
         token_a:      read_token_a(e),
         token_b:      read_token_b(e),
-        paused:       read_paused(e),
-        admin:        read_admin(e),
     }
 }
 

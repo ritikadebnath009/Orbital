@@ -14,8 +14,6 @@ use crate::errors::PoolError;
 
 pub const N_COINS: i128 = 2;
 pub const PRECISION: i128 = 10_000_000; // 1e7 — Stellar native token precision
-pub const MAX_AMP: u64 = 1_000_000;
-pub const MIN_AMP: u64 = 1;
 pub const MAX_ITERATIONS: u32 = 255;
 pub const MIN_RESERVE: i128 = 100; // 100 strobes — prevents divide-by-zero edge cases
 pub const FEE_DENOMINATOR: i128 = 10_000; // basis points denominator
@@ -123,8 +121,7 @@ pub fn compute_y(i: usize, j: usize, x: i128, d: i128, amp: u64) -> Result<i128,
     let n_x = n_u.checked_mul(x_u).ok_or(PoolError::Overflow)?;
     let d_sq = d_u.checked_mul(d_u).ok_or(PoolError::Overflow)?;
 
-    // Ceiling division: c1 = ceil(D^2 / (N * x))
-    let c1_u = (d_sq + n_x - 1) / n_x;
+    let c1_u = d_sq.div_ceil(n_x);
 
     let n_ann = n_u.checked_mul(ann_u).ok_or(PoolError::Overflow)?;
     let c_u = c1_u

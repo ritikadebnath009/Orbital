@@ -33,20 +33,17 @@ pub fn emit_remove_liquidity(
 }
 
 /// Emitted on every swap.
+/// amounts = (amount_in, amount_out, fee), reserves = (reserve_a, reserve_b)
 pub fn emit_swap(
     e: &Env,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-    amount_out: i128,
-    fee: i128,
-    reserve_a: i128,
-    reserve_b: i128,
+    tokens: (&Address, &Address),
+    amounts: (i128, i128, i128),
+    reserves: (i128, i128),
 ) {
     e.events().publish(
         (symbol_short!("swap"), user),
-        (token_in, token_out, amount_in, amount_out, fee, reserve_a, reserve_b),
+        (tokens.0, tokens.1, amounts.0, amounts.1, amounts.2, reserves.0, reserves.1),
     );
 }
 

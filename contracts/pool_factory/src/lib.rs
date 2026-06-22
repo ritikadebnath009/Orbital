@@ -82,7 +82,7 @@ impl PoolFactory {
         if token_a == token_b {
             return Err(FactoryError::InvalidTokens);
         }
-        if amp < 1 || amp > 1_000_000 {
+        if !(1..=1_000_000).contains(&amp) {
             return Err(FactoryError::InvalidAmp);
         }
         if fee_bps > 100 {
