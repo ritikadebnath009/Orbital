@@ -1,6 +1,6 @@
 # OrbitalDEX — Full End-to-End Security & Protocol Audit
 
-**Auditor:** Claude (Anthropic) — adversarial review mode  
+**Auditor:** Independent Auditor — adversarial review mode  
 **Date:** 2026-06-07  
 **Codebase:** Stellar Soroban StableSwap DEX (Curve-inspired, N=2)  
 **Scope:** Smart contracts · StableSwap math · Router · Factory · Backend · Frontend · DevOps  
