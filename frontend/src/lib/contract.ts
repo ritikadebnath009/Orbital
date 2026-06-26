@@ -3,6 +3,7 @@ import {
   rpc as SorobanRpc,
   TransactionBuilder,
   Contract,
+  Keypair,
   Address,
   nativeToScVal,
   scValToNative,
@@ -10,6 +11,11 @@ import {
   BASE_FEE,
 } from "@stellar/stellar-sdk";
 import { sorobanRpc as rpc, NETWORK_PASSPHRASE, PRECISION } from "./stellar";
+import { server, networkPassphrase } from "./stellar-sdk";
+
+// The primary contract address used by this app (factory by default).
+// Individual callers may pass any contract ID to callContractFunction.
+export const CONTRACT_ID = process.env.NEXT_PUBLIC_FACTORY_ADDRESS || "";
 
 export type SignFn = (xdr: string, networkPassphrase: string) => Promise<string>;
 
@@ -20,7 +26,6 @@ export async function simulateContractCall(
   args: xdr.ScVal[]
 ): Promise<unknown> {
   // Deterministic read-only keypair derived from fixed seed — never used to sign real transactions
-  const { Keypair } = await import("@stellar/stellar-sdk");
   const dummyKp = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 0x42));
   const dummySource = dummyKp.publicKey();
   const account = await rpc.getAccount(dummySource).catch(() => ({
@@ -383,4 +388,53 @@ export async function submitClassicXdr(signedXdr: string): Promise<void> {
   const tx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
   const result = await server.submitTransaction(tx);
   if (!result.hash) throw new Error("Transaction submission failed");
+}
+
+// ── Generic contract invocation (signs with a raw secret key) ─────────────────
+// Used by server-side scripts and deployment tooling where a wallet signer is
+// not available and the caller holds the secret key directly.
+
+export async function callContractFunction(
+  contractId: string,
+  method: string,
+  args: xdr.ScVal[],
+  signerSecret: string
+): Promise<unknown> {
+  const keypair = Keypair.fromSecret(signerSecret);
+  const account = await server.getAccount(keypair.publicKey());
+
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account, {
+    fee: String(Number(BASE_FEE) * 10),
+    networkPassphrase,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(60)
+    .build();
+
+  const sim = await server.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(sim)) {
+    throw new Error(`Simulation failed: ${(sim as SorobanRpc.Api.SimulateTransactionErrorResponse).error}`);
+  }
+
+  const assembled = SorobanRpc.assembleTransaction(tx, sim).build();
+  assembled.sign(keypair);
+
+  const sendResult = await server.sendTransaction(assembled);
+  if (sendResult.status === "ERROR") {
+    throw new Error(`Submit failed: ${sendResult.errorResult?.toString() ?? "unknown"}`);
+  }
+
+  const hash = sendResult.hash;
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const txResult = await server.getTransaction(hash);
+    if (txResult.status === "SUCCESS") {
+      const success = txResult as SorobanRpc.Api.GetSuccessfulTransactionResponse;
+      if (success.returnValue) return scValToNative(success.returnValue);
+      return null;
+    }
+    if (txResult.status === "FAILED") throw new Error("Transaction failed on-chain");
+  }
+  throw new Error("Transaction confirmation timeout");
 }

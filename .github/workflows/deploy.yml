@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── Deploy Smart Contracts ─────────────────────────────────────────────────────
+  deploy-contract:
+    name: Deploy contracts to Stellar testnet
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + wasm32v1-none target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/target
+          key: ${{ runner.os }}-cargo-deploy-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-deploy-
+
+      - name: Build all contracts (WASM release)
+        run: cargo build --release --target wasm32v1-none
+
+      - name: Install Stellar CLI
+        run: cargo install --locked stellar-cli --features opt
+
+      - name: Deploy stable_pool contract
+        run: |
+          stellar contract deploy \
+            --wasm target/wasm32v1-none/release/stable_pool.wasm \
+            --source ${{ secrets.STELLAR_SECRET_KEY }} \
+            --network testnet
+        continue-on-error: true
+
+      - name: Deploy pool_factory contract
+        run: |
+          stellar contract deploy \
+            --wasm target/wasm32v1-none/release/pool_factory.wasm \
+            --source ${{ secrets.STELLAR_SECRET_KEY }} \
+            --network testnet
+        continue-on-error: true
+
+      - name: Deploy router contract
+        run: |
+          stellar contract deploy \
+            --wasm target/wasm32v1-none/release/router.wasm \
+            --source ${{ secrets.STELLAR_SECRET_KEY }} \
+            --network testnet
+        continue-on-error: true
+
+  # ── Deploy Frontend ────────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend to Vercel
+    needs: [deploy-contract]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_STELLAR_RPC_URL: ${{ secrets.NEXT_PUBLIC_SOROBAN_RPC_URL }}
+          NEXT_PUBLIC_SOROBAN_RPC_URL: ${{ secrets.NEXT_PUBLIC_SOROBAN_RPC_URL }}
+          NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+          NEXT_PUBLIC_NETWORK_PASSPHRASE: ${{ secrets.NEXT_PUBLIC_NETWORK_PASSPHRASE }}
+          NEXT_PUBLIC_CONTRACT_ID: ${{ secrets.NEXT_PUBLIC_CONTRACT_ID }}
+          NEXT_PUBLIC_FACTORY_ADDRESS: ${{ secrets.NEXT_PUBLIC_FACTORY_ADDRESS }}
+          NEXT_PUBLIC_ROUTER_ADDRESS: ${{ secrets.NEXT_PUBLIC_ROUTER_ADDRESS }}
+          NEXT_PUBLIC_USDC_ADDRESS: ${{ secrets.NEXT_PUBLIC_USDC_ADDRESS }}
+          NEXT_PUBLIC_USDT_ADDRESS: ${{ secrets.NEXT_PUBLIC_USDT_ADDRESS }}
+          NEXT_PUBLIC_EURC_ADDRESS: ${{ secrets.NEXT_PUBLIC_EURC_ADDRESS }}
+          NEXT_PUBLIC_XLM_ADDRESS: ${{ secrets.NEXT_PUBLIC_XLM_ADDRESS }}
+          NEXT_PUBLIC_POOL_USDT_XLM: ${{ secrets.NEXT_PUBLIC_POOL_USDT_XLM }}
+          NEXT_PUBLIC_POOL_USDT_EURC: ${{ secrets.NEXT_PUBLIC_POOL_USDT_EURC }}
+
+      - name: Deploy to Vercel
+        run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
