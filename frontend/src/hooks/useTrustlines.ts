@@ -28,16 +28,35 @@ export function useTrustlines(
 
   const refetch = useCallback(() => setTick((n) => n + 1), []);
 
-  useEffect(() => {
-    if (!address) { setStatuses([]); return; }
-    setLoading(true);
-    checkTrustlines(address, KNOWN_TOKENS)
-      .then(setStatuses)
-      .catch(() => setStatuses([]))
-      .finally(() => setLoading(false));
-  }, [address, tick, refreshTrigger]);
+  const enabled = Boolean(address);
 
-  const missingTokens = statuses
+  useEffect(() => {
+    // No address — the "disabled" case is handled below via `enabled`
+    // directly, so nothing needs resetting here.
+    if (!enabled) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const s = await checkTrustlines(address!, KNOWN_TOKENS);
+        if (!cancelled) setStatuses(s);
+      } catch {
+        if (!cancelled) setStatuses([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, address, tick, refreshTrigger]);
+
+  const effectiveStatuses = enabled ? statuses : [];
+  const missingTokens = effectiveStatuses
     .filter((s) => !s.hasTrustline && s.token.issuer)
     .map((s) => s.token);
 
@@ -60,5 +79,13 @@ export function useTrustlines(
     [address, missingTokens, refetch]
   );
 
-  return { statuses, missingTokens, loading, approving, error, refetch, setupTrustlines };
+  return {
+    statuses: effectiveStatuses,
+    missingTokens,
+    loading: enabled && loading,
+    approving,
+    error,
+    refetch,
+    setupTrustlines,
+  };
 }
