@@ -362,6 +362,15 @@ impl StablePool {
         compute_virtual_price([ra, rb], total, amp)
     }
 
+    /// LOW-1 fix: the previous implementation probed with a full 1-token swap
+    /// (`dx = PRECISION`). On small or imbalanced pools that probe is large
+    /// enough to travel a meaningful distance along the StableSwap curve, so
+    /// the result was a secant price over that range rather than the true
+    /// instantaneous marginal price — increasingly wrong the more imbalanced
+    /// the pool is. Scaling the probe to a small fraction of the input
+    /// reserve keeps it close to the current point on the curve regardless
+    /// of pool size, then rescaling the output back to a PRECISION-denominated
+    /// rate preserves the original return unit (token_out per 1 token_in).
     pub fn get_spot_price(e: Env, token_in: Address) -> Result<i128, PoolError> {
         let state = read_pool_state(&e);
         let token_in_idx = if token_in == state.token_a {
@@ -372,8 +381,13 @@ impl StablePool {
             return Err(PoolError::InvalidToken);
         };
         let xp = [state.reserve_a, state.reserve_b];
-        let (dy, _) = compute_swap(xp, token_in_idx, math::PRECISION, state.amp, 0)?;
-        Ok(dy)
+        let probe = (xp[token_in_idx] / 1_000_000).max(1);
+        let (dy, _) = compute_swap(xp, token_in_idx, probe, state.amp, 0)?;
+        let price = dy
+            .checked_mul(math::PRECISION)
+            .ok_or(PoolError::Overflow)?
+            / probe;
+        Ok(price)
     }
 
     pub fn is_paused(e: Env) -> bool {

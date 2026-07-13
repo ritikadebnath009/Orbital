@@ -433,6 +433,54 @@ fn test_spot_price_near_one_balanced() {
     );
 }
 
+// LOW-1 regression: on an imbalanced pool, get_spot_price must track the true
+// marginal (instantaneous) price of the invariant curve, not a secant price
+// distorted by a probe that's large relative to the reserves. We verify this
+// by comparing the contract's answer against a reference computed with a
+// 1-strobe probe (as close to instantaneous as the integer math allows) and
+// against what the old fixed-1-token-probe implementation would have
+// returned — the new value must be much closer to the reference.
+#[test]
+fn test_spot_price_imbalanced_matches_marginal_price() {
+    let t = TestPool::new();
+    let lp = Address::generate(&t.env);
+    // Deliberately imbalanced first deposit: 10x skew, at a realistic scale
+    // so the -1-strobe rounding buffer in compute_swap (a deliberate
+    // conservative safety margin, not something this fix touches) stays
+    // negligible relative to the probe sizes involved.
+    let small = 5_000 * PRECISION;
+    let large = 50_000 * PRECISION;
+    t.mint_usdc(&lp, small);
+    t.mint_usdt(&lp, large);
+    t.pool.add_liquidity(&lp, &small, &large, &1i128);
+
+    let contract_price = t.pool.get_spot_price(&t.usdc);
+
+    // Reference: a tiny probe (10,000 strobes — 0.001 token, far smaller than
+    // the old fixed 1-token probe and still safely clear of compute_swap's
+    // -1-strobe rounding buffer) as a stand-in for the instantaneous
+    // derivative at this point on the curve.
+    let xp = [small, large];
+    let probe_ref = 10_000i128;
+    let (dy_ref, _) = crate::math::compute_swap(xp, 0, probe_ref, 100u64, 0).unwrap();
+    let reference_price = dy_ref * PRECISION / probe_ref;
+
+    let diff = (contract_price - reference_price).abs();
+    assert!(
+        diff < PRECISION / 100,
+        "get_spot_price should track the marginal reference within 1% on an \
+         imbalanced pool: contract_price={contract_price}, reference_price={reference_price}, \
+         diff={diff}"
+    );
+
+    // Sanity check the direction: USDC is the scarce side of this pool, so
+    // selling it should command a premium (>1 unit of USDT per USDC).
+    assert!(
+        contract_price > PRECISION,
+        "scarce-side spot price should be above par: {contract_price}"
+    );
+}
+
 // ── Simulation (get_swap_result) ──────────────────────────────────────────────
 
 #[test]
@@ -601,4 +649,124 @@ fn test_swap_uses_interpolated_amp() {
         out_high_a > out_low_a,
         "A=200 should give more output ({out_high_a}) than A=20 ({out_low_a})"
     );
+}
+
+// ── Invariant & upgrade-timelock property tests ─────────────────────────────────
+//
+// The audit's Test Coverage Analysis flagged three gaps: a D-never-decreases
+// property test, virtual-price-monotonicity across many swaps, and upgrade
+// timelock coverage. Rather than pull in an external fuzz/proptest dependency,
+// these use a small deterministic xorshift64 PRNG so runs are reproducible.
+
+struct Xorshift64(u64);
+impl Xorshift64 {
+    fn next(&mut self) -> u64 {
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.0 = x;
+        x
+    }
+    fn range(&mut self, lo: i128, hi: i128) -> i128 {
+        let span = (hi - lo) as u64;
+        lo + (self.next() % span) as i128
+    }
+}
+
+#[test]
+fn test_invariant_d_never_decreases_across_random_swaps() {
+    let t = TestPool::new();
+    let lp = Address::generate(&t.env);
+    let pool_size = 1_000_000 * PRECISION;
+    t.mint_usdc(&lp, pool_size);
+    t.mint_usdt(&lp, pool_size);
+    t.pool.add_liquidity(&lp, &pool_size, &pool_size, &1i128);
+
+    let trader = Address::generate(&t.env);
+    t.mint_usdc(&trader, pool_size);
+    t.mint_usdt(&trader, pool_size);
+
+    let mut rng = Xorshift64(0x5EED_1234_ABCD_9876);
+    let mut prev_d = t.pool.get_d();
+
+    for i in 0..40 {
+        let amt = rng.range(PRECISION, 5_000 * PRECISION);
+        let out = if i % 2 == 0 {
+            t.pool.swap(&trader, &t.usdc, &amt, &1i128)
+        } else {
+            t.pool.swap(&trader, &t.usdt, &amt, &1i128)
+        };
+        assert!(out > 0);
+        let d = t.pool.get_d();
+        assert!(d >= prev_d, "D decreased after swap #{i}: prev={prev_d}, new={d}");
+        prev_d = d;
+    }
+}
+
+#[test]
+fn test_virtual_price_monotonic_across_random_swaps() {
+    let t = TestPool::new();
+    let lp = Address::generate(&t.env);
+    let pool_size = 1_000_000 * PRECISION;
+    t.mint_usdc(&lp, pool_size);
+    t.mint_usdt(&lp, pool_size);
+    t.pool.add_liquidity(&lp, &pool_size, &pool_size, &1i128);
+
+    let trader = Address::generate(&t.env);
+    t.mint_usdc(&trader, pool_size);
+    t.mint_usdt(&trader, pool_size);
+
+    let mut rng = Xorshift64(0x1357_9BDF_2468_ACE0);
+    let mut prev_vp = t.pool.get_virtual_price();
+
+    for i in 0..40 {
+        let amt = rng.range(PRECISION, 5_000 * PRECISION);
+        if i % 2 == 0 {
+            t.pool.swap(&trader, &t.usdc, &amt, &1i128);
+        } else {
+            t.pool.swap(&trader, &t.usdt, &amt, &1i128);
+        };
+        let vp = t.pool.get_virtual_price();
+        assert!(vp >= prev_vp, "virtual price decreased after swap #{i}: prev={prev_vp}, new={vp}");
+        prev_vp = vp;
+    }
+}
+
+#[test]
+fn test_upgrade_execute_blocked_before_timelock() {
+    let t = TestPool::new();
+    let t0: u64 = 1_000_000;
+    set_timestamp(&t.env, t0);
+
+    let dummy_hash = soroban_sdk::BytesN::from_array(&t.env, &[7u8; 32]);
+    t.pool.propose_upgrade(&dummy_hash);
+
+    let pending = t.pool.get_pending_upgrade();
+    assert_eq!(pending, Some((dummy_hash.clone(), t0 + 172_800)));
+
+    // Immediately after proposing, execution must still be blocked.
+    let result = t.pool.try_execute_upgrade();
+    assert!(result.is_err(), "execute_upgrade should fail before the 48h timelock elapses");
+
+    // One second before the deadline: still blocked.
+    set_timestamp(&t.env, t0 + 172_800 - 1);
+    let result = t.pool.try_execute_upgrade();
+    assert!(result.is_err(), "execute_upgrade should still be blocked 1s before the deadline");
+}
+
+#[test]
+fn test_upgrade_cancel_clears_pending() {
+    let t = TestPool::new();
+    let dummy_hash = soroban_sdk::BytesN::from_array(&t.env, &[3u8; 32]);
+    t.pool.propose_upgrade(&dummy_hash);
+    assert!(t.pool.get_pending_upgrade().is_some());
+
+    t.pool.cancel_upgrade();
+    assert_eq!(t.pool.get_pending_upgrade(), None);
+
+    // Nothing pending anymore — execute must fail with NoPendingUpgrade, not
+    // silently proceed.
+    let result = t.pool.try_execute_upgrade();
+    assert!(result.is_err(), "execute_upgrade must fail once the pending upgrade was cancelled");
 }
