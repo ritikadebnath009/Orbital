@@ -68,5 +68,17 @@
     "routing": "Router supports 2-hop routes: EURC↔XLM routes via EURC/USDT + USDT/XLM pools",
     "create_usdc_pool": "Run ./scripts/deploy_testnet.sh after getting Circle USDC to create and seed the USDC/XLM pool",
     "mainnet_upgrade": "Replace token SAC addresses with mainnet equivalents. XLM SAC is identical on mainnet."
+  },
+  "pending_upgrades": {
+    "stable_pool": {
+      "reason": "LOW-1 fix: get_spot_price marginal-price accuracy on imbalanced pools (see CHANGELOG.md)",
+      "new_wasm_hash": "ccf26913bb31069416219f8ddc1c5359e45bc0b14e3e773617f00254dffd8828",
+      "uploaded_tx": "3888eb5c44065f1e988c9e035f562b730295f80012d291fcac859114586e2e1b",
+      "proposed_on_pool": "CCIVPHQD3FJXRXY45UAYX226MD647TZLYSZEJKSOWGUMFUCMG5R2WPFV",
+      "propose_upgrade_tx": "da18f87ee3e817abb8115f73a56c04bd4252681fe3aa5282ce7ca6b23511eb82",
+      "proposed_at": "2026-07-13T16:03:54Z",
+      "executable_after": "2026-07-15T16:03:54Z",
+      "status": "pending — HIGH-5's 48h timelock has not elapsed; run `stellar contract invoke --network testnet --source orbital-deployer --id CCIVPHQD3FJXRXY45UAYX226MD647TZLYSZEJKSOWGUMFUCMG5R2WPFV -- execute_upgrade` after the deadline, then repeat propose_upgrade/execute_upgrade for the USDT/XLM pool"
+    }
   }
 }

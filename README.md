@@ -9,6 +9,8 @@ Swap stablecoins (USDC, USDT, EURC) and native XLM with near-zero slippage throu
 |-----------|-----|
 | 🌐 Live Application | https://orbitalstellar.vercel.app/ |
 | 🎥 Demo Video | https://www.youtube.com/watch?v=OBQrVJKmrFU |
+| 📋 Changelog | [CHANGELOG.md](./CHANGELOG.md) |
+| 🔍 Audit Report | [auditreport.md](./auditreport.md) |
 
 ---
 
@@ -372,7 +374,7 @@ src/
 ```bash
 cd contracts
 
-# Run all tests (58 total: 42 pool + 8 factory + 8 router)
+# Run all tests (73 total: 57 pool + 8 factory + 8 router)
 cargo test --workspace -- --nocapture
 
 # Run a specific contract
@@ -385,7 +387,7 @@ RUST_LOG=debug cargo test --workspace 2>&1 | tee test_output.txt
 ```
 
 **Test coverage:**
-- StablePool: initialization, deposits (balanced/single-sided), withdrawals, swaps, slippage, pause, ramp-A, spot price, simulation, virtual price, protocol fees, upgrade timelock
+- StablePool: initialization, deposits (balanced/single-sided), withdrawals, swaps, slippage, pause, ramp-A, spot price (including imbalanced-pool accuracy), simulation, virtual price, protocol fees, upgrade timelock (blocked-before-deadline + cancellation), D-invariant and virtual-price monotonicity across randomized swap sequences
 - PoolFactory: initialization, pool creation, duplicate prevention, cross-contract pool invocation, `pause_all`
 - Router: 1-hop quotes, 2-hop quotes, direct swaps, 2-hop swaps, expired deadline, slippage exceeded, no-route error
 
@@ -588,8 +590,16 @@ stellar contract invoke --network testnet --id $POOL_ADDRESS -- get_virtual_pric
 | Live swap (1000 USDC → 999.59 EURC) | `a66ee789...` |
 | USDT/XLM pool seeded | Ledger ~3,800,000 |
 | USDT/EURC pool seeded | Ledger ~3,800,100 |
+| Swap: 10 USDT → 9.9950106 EURC (2026-07-13) | `779de51d10351a65fc3f849cbe1660ba621e58246d0cb55cd1d9b2d633de5df2` |
+| Swap: 5 USDT → 10.2047430 XLM (2026-07-13) | `841f3c2ad738bf4cfde5a11f1e1c462396d9259d0d63beb5709b280f9abe3137` |
+| Add liquidity: 20 USDT + 20 EURC (2026-07-13) | `4b9f8f02c48b33e5ef8dfa774bf6d26e0b247ab024c5b72c25bd92fdeea3f1d3` |
+| Remove liquidity: 10 shares (2026-07-13) | `4b558ab26a963256fae3d9b6ca5e48353d686353edf7cc97891149a540d89e81` |
+| Propose upgrade: LOW-1-fixed stable_pool WASM (2026-07-13) | `da18f87ee3e817abb8115f73a56c04bd4252681fe3aa5282ce7ca6b23511eb82` |
 
-> **Verify on-chain:** `https://stellar.expert/explorer/testnet/contract/{address}`
+Full detail, including the pending upgrade's timelock deadline, is in
+[CHANGELOG.md](./CHANGELOG.md).
+
+> **Verify on-chain:** `https://stellar.expert/explorer/testnet/tx/{hash}` or `https://stellar.expert/explorer/testnet/contract/{address}`
 
 ### Stellar Expert links
 
