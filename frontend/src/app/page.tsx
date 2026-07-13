@@ -8,13 +8,7 @@ import { MarketSection } from "@/components/MarketSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { Footer } from "@/components/Footer";
 import { ArrowRight, BarChart2, Zap, ChevronDown } from "lucide-react";
-
-const LIVE_STATS = [
-  { label: "24h Volume", value: "$38.4M" },
-  { label: "TVL", value: "$124.6M" },
-  { label: "Pools", value: "12" },
-  { label: "Avg Slippage", value: "0.003%" },
-];
+import { useProtocolStats } from "@/hooks/useProtocolStats";
 
 const TOKENS = [
   { symbol: "USDC", color: "#4ade80", letter: "U" },
@@ -72,7 +66,26 @@ function FloatingTokens() {
 }
 
 function StatsTicker() {
-  const items = [...LIVE_STATS, ...LIVE_STATS];
+  const { loading, livePoolCount, pools, swaps24h, volume24h } = useProtocolStats();
+
+  const avgFeeBps = pools.length
+    ? pools.reduce((sum, p) => sum + p.feeBps, 0) / pools.length
+    : null;
+
+  // Real numbers pulled live from the deployed contracts (and, when the
+  // optional backend indexer is reachable, from actually-indexed swap
+  // events) — no hardcoded marketing figures.
+  const liveStats: { label: string; value: string }[] = [
+    { label: "Network", value: "Stellar Testnet" },
+    { label: "Live Pools", value: loading ? "…" : String(livePoolCount) },
+    {
+      label: "Avg Fee",
+      value: avgFeeBps === null ? "—" : `${(avgFeeBps / 100).toFixed(2)}%`,
+    },
+    { label: "24h Swaps", value: swaps24h === null ? "—" : String(swaps24h) },
+    { label: "24h Volume", value: volume24h === null ? "—" : volume24h },
+  ];
+  const items = [...liveStats, ...liveStats];
   return (
     <div className="w-full overflow-hidden py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
       <div className="flex animate-ticker gap-0 whitespace-nowrap" style={{ width: "max-content" }}>

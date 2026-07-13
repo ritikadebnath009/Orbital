@@ -1,45 +1,18 @@
 "use client";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Activity, BarChart3 } from "lucide-react";
+import { Activity, BarChart3, Layers, Percent } from "lucide-react";
+import { useProtocolStats } from "@/hooks/useProtocolStats";
+import { formatAmount } from "@/lib/stellar";
 
-const MOCK_TOKENS = [
-  { symbol: "XLM", name: "Stellar Lumens", price: "$0.1024", change: "+4.82%", volume: "$2.1M", positive: true, color: "#6ee7ff" },
-  { symbol: "USDC", name: "USD Coin", price: "$1.0001", change: "+0.01%", volume: "$18.4M", positive: true, color: "#4ade80" },
-  { symbol: "USDT", name: "Tether", price: "$0.9998", change: "-0.02%", volume: "$14.2M", positive: false, color: "#fbbf24" },
-  { symbol: "EURC", name: "Euro Coin", price: "$1.0821", change: "+0.34%", volume: "$3.7M", positive: true, color: "#b599e5" },
-];
+const TOKEN_COLORS: Record<string, string> = {
+  USDC: "#4ade80",
+  USDT: "#fbbf24",
+  XLM: "#6ee7ff",
+  EURC: "#b599e5",
+};
 
-const STATS = [
-  { label: "24h Volume", value: "$38.4M", sub: "+12.4% vs yesterday", icon: BarChart3, color: "#b599e5" },
-  { label: "Total TVL", value: "$124.6M", sub: "Across all pools", icon: Activity, color: "#6ee7ff" },
-  { label: "Active Traders", value: "2,841", sub: "Last 24 hours", icon: TrendingUp, color: "#4ade80" },
-  { label: "Total Swaps", value: "94,102", sub: "All-time", icon: Activity, color: "#fbbf24" },
-];
-
-function Sparkline({ positive }: { positive: boolean }) {
-  const color = positive ? "#4ade80" : "#ff5c7a";
-  const points = positive
-    ? "0,20 10,16 20,18 30,12 40,14 50,8 60,10 70,4 80,6 90,2 100,4"
-    : "0,4 10,8 20,6 30,12 40,10 50,16 60,14 70,18 80,16 90,20 100,18";
-
-  return (
-    <svg width="100" height="24" viewBox="0 0 100 24" fill="none">
-      <defs>
-        <linearGradient id={`sg-${positive}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline
-        points={points}
-        stroke={color}
-        strokeWidth="1.5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function pairColor(symbolA: string): string {
+  return TOKEN_COLORS[symbolA] ?? "#b599e5";
 }
 
 const containerVariants = {
@@ -53,6 +26,22 @@ const itemVariants = {
 };
 
 export function MarketSection() {
+  const { loading, livePoolCount, pools, swaps24h, volume24h } = useProtocolStats();
+
+  const avgFeeBps = pools.length
+    ? pools.reduce((sum, p) => sum + p.feeBps, 0) / pools.length
+    : null;
+
+  // Pulled live from the deployed contracts — no fabricated $ figures. Swap
+  // count/volume come from the optional backend indexer and show "—" rather
+  // than an invented number when it isn't reachable.
+  const stats = [
+    { label: "Live Pools", value: loading ? "…" : String(livePoolCount), sub: "On Stellar Testnet", icon: Layers, color: "#6ee7ff" },
+    { label: "Avg Fee", value: avgFeeBps === null ? "—" : `${(avgFeeBps / 100).toFixed(2)}%`, sub: "Across all pools", icon: Percent, color: "#b599e5" },
+    { label: "24h Swaps", value: swaps24h === null ? "—" : String(swaps24h), sub: swaps24h === null ? "Indexer offline" : "Last 24 hours", icon: Activity, color: "#4ade80" },
+    { label: "24h Volume", value: volume24h === null ? "—" : volume24h, sub: volume24h === null ? "Indexer offline" : "Across all pools", icon: BarChart3, color: "#fbbf24" },
+  ];
+
   return (
     <section className="relative py-20 px-4">
       <div className="max-w-7xl mx-auto">
@@ -68,7 +57,7 @@ export function MarketSection() {
             Live Market
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Real-time Asset Data
+            Real-time Pool Data
           </h2>
         </motion.div>
 
@@ -80,7 +69,7 @@ export function MarketSection() {
           whileInView="visible"
           viewport={{ once: true }}
         >
-          {STATS.map((stat) => (
+          {stats.map((stat) => (
             <motion.div key={stat.label} variants={itemVariants}>
               <div
                 className="glass-card rounded-2xl p-5 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300"
@@ -114,21 +103,31 @@ export function MarketSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           <div
-            className="grid grid-cols-4 sm:grid-cols-5 px-6 py-3 text-xs font-semibold uppercase tracking-wider"
+            className="grid grid-cols-3 sm:grid-cols-4 px-6 py-3 text-xs font-semibold uppercase tracking-wider"
             style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}
           >
-            <span>Token</span>
-            <span className="text-right">Price</span>
-            <span className="text-right hidden sm:block">24h Change</span>
-            <span className="text-right hidden sm:block">Volume</span>
-            <span className="text-right">Chart</span>
+            <span>Pool</span>
+            <span className="text-right">Reserves</span>
+            <span className="text-right hidden sm:block">Virtual Price</span>
+            <span className="text-right">Fee</span>
           </div>
 
-          {MOCK_TOKENS.map((token, i) => (
+          {loading && pools.length === 0 && (
+            <div className="px-6 py-8 text-center text-sm text-white/35">
+              Loading live pool data from Stellar Testnet…
+            </div>
+          )}
+          {!loading && pools.length === 0 && (
+            <div className="px-6 py-8 text-center text-sm text-white/35">
+              No pools reachable right now — check your RPC connection.
+            </div>
+          )}
+
+          {pools.map((pool, i) => (
             <motion.div
-              key={token.symbol}
-              className="grid grid-cols-4 sm:grid-cols-5 px-6 py-4 items-center group cursor-pointer hover:bg-white/[0.02] transition-colors"
-              style={{ borderBottom: i < MOCK_TOKENS.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+              key={pool.address}
+              className="grid grid-cols-3 sm:grid-cols-4 px-6 py-4 items-center group cursor-pointer hover:bg-white/[0.02] transition-colors"
+              style={{ borderBottom: i < pools.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
               initial={{ opacity: 0, x: -10 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -137,34 +136,31 @@ export function MarketSection() {
               <div className="flex items-center gap-3">
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: `${token.color}25`, border: `1px solid ${token.color}40` }}
+                  style={{ background: `${pairColor(pool.symbolA)}25`, border: `1px solid ${pairColor(pool.symbolA)}40` }}
                 >
-                  {token.symbol[0]}
+                  {pool.symbolA[0]}
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{token.symbol}</div>
-                  <div className="text-xs text-white/35 hidden sm:block">{token.name}</div>
+                  <div className="text-sm font-semibold text-white">
+                    {pool.symbolA}/{pool.symbolB}
+                  </div>
+                  <div className="text-xs text-white/35 hidden sm:block">Live on Testnet</div>
                 </div>
               </div>
 
               <div className="text-sm font-semibold text-white text-right tabular-nums">
-                {token.price}
-              </div>
-
-              <div
-                className={`text-sm font-medium text-right hidden sm:flex items-center justify-end gap-1`}
-                style={{ color: token.positive ? "#4ade80" : "#ff5c7a" }}
-              >
-                {token.positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {token.change}
+                {formatAmount(pool.reserveA, 2)} {pool.symbolA}
+                <div className="text-xs text-white/40">
+                  {formatAmount(pool.reserveB, 2)} {pool.symbolB}
+                </div>
               </div>
 
               <div className="text-sm text-white/50 text-right hidden sm:block tabular-nums">
-                {token.volume}
+                {formatAmount(pool.virtualPrice, 4)}
               </div>
 
-              <div className="flex justify-end">
-                <Sparkline positive={token.positive} />
+              <div className="text-sm text-white/50 text-right tabular-nums">
+                {(pool.feeBps / 100).toFixed(2)}%
               </div>
             </motion.div>
           ))}
