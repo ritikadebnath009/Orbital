@@ -9,6 +9,7 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { Footer } from "@/components/Footer";
 import { ArrowRight, BarChart2, Zap, ChevronDown } from "lucide-react";
 import { useProtocolStats } from "@/hooks/useProtocolStats";
+import { GettingStarted } from "@/components/GettingStarted";
 
 const TOKENS = [
   { symbol: "USDC", color: "#4ade80", letter: "U" },
@@ -124,6 +125,7 @@ export default function Home() {
         <FloatingTokens />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12">
+          <GettingStarted />
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
 
             {/* Left: copy */}

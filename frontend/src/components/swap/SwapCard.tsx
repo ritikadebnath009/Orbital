@@ -11,6 +11,7 @@ import { useTrustlines } from "@/hooks/useTrustlines";
 import { ROUTER_ADDRESS, KNOWN_TOKENS, toStrobes, fromStrobes, PRECISION } from "@/lib/stellar";
 import { executeRouterSwap, executeSwap, getCurrentLedger } from "@/lib/contract";
 import { POOLS } from "@/lib/stellar";
+import { onboarding } from "@/lib/onboarding";
 
 const PRESET_SLIPPAGES = [
   { label: "0.1%", bps: 10n },
@@ -439,6 +440,7 @@ export function SwapCard() {
 
       setTxState("success");
       setAmountIn("");
+      onboarding.markSwapped();
     } catch (err) {
       setTxState("error");
       setTxError((err as Error).message);
@@ -460,6 +462,7 @@ export function SwapCard() {
         throw new Error(data.error ?? `Request failed: ${res.status}`);
       }
       setFaucetState("done");
+      onboarding.markFunded();
       refetchTrustlines();
     } catch (err) {
       setFaucetState("error");
