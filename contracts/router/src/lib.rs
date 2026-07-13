@@ -287,6 +287,12 @@ fn call_pool_swap(
     Ok(e.invoke_contract::<i128>(pool, &Symbol::new(e, "swap"), args))
 }
 
+/// LOW-4 fix: previously this scanned every pool the factory has ever
+/// created, issuing a cross-contract `get_tokens` call per pool, even after
+/// `MAX_INTERMEDIATES` candidates had already been collected — O(n) in the
+/// total pool count regardless of how many intermediates were actually
+/// needed. As the factory accumulates pools this only gets more expensive
+/// for every quote/swap. Stop scanning as soon as the cap is reached instead.
 fn collect_intermediates(
     e: &Env,
     _factory: &Address,
@@ -297,6 +303,10 @@ fn collect_intermediates(
     let mut intermediates: Vec<Address> = Vec::new(e);
 
     for pool_addr in all_pools.iter() {
+        if intermediates.len() >= MAX_INTERMEDIATES {
+            break;
+        }
+
         let tokens = get_pool_tokens(e, &pool_addr);
         if tokens.is_none() {
             continue;
@@ -316,7 +326,7 @@ fn collect_intermediates(
                 continue;
             }
             let already_added = intermediates.iter().any(|t| t == mid_token);
-            if !already_added && intermediates.len() < MAX_INTERMEDIATES {
+            if !already_added {
                 intermediates.push_back(mid_token);
             }
         }
