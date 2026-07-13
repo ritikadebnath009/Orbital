@@ -30,8 +30,6 @@ struct TestPool<'a> {
     pool: StablePoolClient<'a>,
     usdc: Address,
     usdt: Address,
-    usdc_admin: Address,
-    usdt_admin: Address,
     admin: Address,
 }
 
@@ -44,8 +42,8 @@ impl<'a> TestPool<'a> {
         let usdc_admin = Address::generate(&env);
         let usdt_admin = Address::generate(&env);
 
-        let (usdc, usdc_sac) = deploy_sac(&env, &usdc_admin);
-        let (usdt, usdt_sac) = deploy_sac(&env, &usdt_admin);
+        let (usdc, _) = deploy_sac(&env, &usdc_admin);
+        let (usdt, _) = deploy_sac(&env, &usdt_admin);
 
         let pool_id = env.register(StablePool, ());
         let pool = StablePoolClient::new(&env, &pool_id);
@@ -57,8 +55,6 @@ impl<'a> TestPool<'a> {
             pool,
             usdc,
             usdt,
-            usdc_admin,
-            usdt_admin,
             admin,
         }
     }
@@ -534,7 +530,7 @@ fn test_ramp_a_linearly_interpolates() {
     // At midpoint: ~150
     set_timestamp(&t.env, t0 + 86_400);
     let mid = t.pool.get_amp();
-    assert!(mid >= 149 && mid <= 151, "midpoint A should be ~150, got {mid}");
+    assert!((149..=151).contains(&mid), "midpoint A should be ~150, got {mid}");
 
     // After end: exactly 200
     set_timestamp(&t.env, t1 + 1);
@@ -554,7 +550,7 @@ fn test_ramp_a_decreasing() {
     set_timestamp(&t.env, t0 + 43_200); // halfway
     let mid = t.pool.get_amp();
     // Linear: 200 + (20-200)*0.5 = 110
-    assert!(mid >= 109 && mid <= 111, "midpoint should be ~110, got {mid}");
+    assert!((109..=111).contains(&mid), "midpoint should be ~110, got {mid}");
 
     set_timestamp(&t.env, t1);
     assert_eq!(t.pool.get_amp(), 20u64);

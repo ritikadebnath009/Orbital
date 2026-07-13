@@ -37,13 +37,8 @@ fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
 struct TestSetup<'a> {
     env: Env,
     router: RouterClient<'a>,
-    factory: factory_wasm::Client<'a>,
     usdc: Address,
     usdt: Address,
-    eurc: Address,
-    pool_usdc_usdt: Address,
-    pool_usdc_eurc: Address,
-    pool_usdt_eurc: Address,
 }
 
 fn setup() -> TestSetup<'static> {
@@ -92,18 +87,16 @@ fn setup() -> TestSetup<'static> {
     usdc_eurc.add_liquidity(&lp, &POOL_SIZE, &POOL_SIZE, &1i128);
     usdt_eurc.add_liquidity(&lp, &POOL_SIZE, &POOL_SIZE, &1i128);
 
-    // Safety: transmute to 'static for test struct (env lives on stack)
+    // Safety: transmute to 'static for test struct (env lives on stack).
+    // factory/eurc/pool_* were never read through the returned struct by any
+    // test — they'd already done their job locally above (initializing the
+    // factory, seeding the pools) — so they're no longer stored.
     unsafe {
         TestSetup {
             env: env.clone(),
-            router: core::mem::transmute(router),
-            factory: core::mem::transmute(factory_client),
+            router: core::mem::transmute::<RouterClient, RouterClient<'static>>(router),
             usdc,
             usdt,
-            eurc,
-            pool_usdc_usdt,
-            pool_usdc_eurc,
-            pool_usdt_eurc,
         }
     }
 }

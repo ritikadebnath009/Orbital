@@ -13,7 +13,7 @@ extern crate std;
 use std::println;
 
 use soroban_sdk::{
-    testutils::{Address as _, Ledger as _},
+    testutils::Address as _,
     token::{StellarAssetClient, TokenClient},
     Address, Env,
 };
@@ -143,6 +143,14 @@ fn test_lp_earns_profit_from_fees() {
     assert!(withdrawn_total > deposited_total,
         "LP must profit: deposited={deposited_total}, withdrawn={withdrawn_total}");
     assert!(profit > 0, "profit must be positive, got {profit}");
+
+    // "No ambiguity about whether profit actually occurred" (see module doc)
+    // means checking the LP's real wallet balance, not just the contract's
+    // reported return values — a transfer bug could make these diverge even
+    // if the internal accounting above looks correct.
+    assert_eq!(p.usdc_balance(&lp), withdrawn_usdc, "wallet USDC balance must match reported withdrawal");
+    assert_eq!(p.xlm_balance(&lp), withdrawn_xlm, "wallet XLM balance must match reported withdrawal");
+    assert_eq!(p.user_value(&lp), withdrawn_total, "wallet total value must match reported withdrawal");
 
     // Verify profit is in the right ballpark (at least 10 USDC worth from fees)
     let min_expected_profit = 10 * PRECISION;

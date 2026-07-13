@@ -400,7 +400,7 @@ mod tests {
     fn test_swap_small_balanced() {
         let pool = 1_000_000 * PRECISION;
         let xp = [pool, pool];
-        let dx = 1 * PRECISION;
+        let dx = PRECISION;
         let (dy, fee) = compute_swap(xp, 0, dx, A, FEE).unwrap();
         let slippage_bps = (dx - dy - fee) * 10_000 / dx;
         assert!(slippage_bps <= 5, "slippage too high: {slippage_bps} bps");
