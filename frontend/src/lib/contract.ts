@@ -12,6 +12,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { sorobanRpc as rpc, NETWORK_PASSPHRASE, PRECISION } from "./stellar";
 import { server, networkPassphrase } from "./stellar-sdk";
+import { friendlyContractError, ContractType } from "./contractErrors";
 
 // The primary contract address used by this app (factory by default).
 // Individual callers may pass any contract ID to callContractFunction.
@@ -23,7 +24,8 @@ export type SignFn = (xdr: string, networkPassphrase: string) => Promise<string>
 export async function simulateContractCall(
   contractId: string,
   method: string,
-  args: xdr.ScVal[]
+  args: xdr.ScVal[],
+  contractType: ContractType = "pool"
 ): Promise<unknown> {
   // Deterministic read-only keypair derived from fixed seed — never used to sign real transactions
   const dummyKp = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 0x42));
@@ -45,22 +47,7 @@ export async function simulateContractCall(
 
   const sim = await rpc.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(sim)) {
-    const msg = sim.error ?? "";
-    // Extract the innermost error name, e.g. "NoRouteFound" from the HostError string
-    const match = msg.match(/Error\(Contract,\s*#(\d+)\)/);
-    if (match) {
-      const code = Number(match[1]);
-      const ROUTER_ERRORS: Record<number, string> = {
-        1: "Pool already exists",
-        2: "Pool not found",
-        3: "No route found for this token pair",
-        4: "Slippage exceeded",
-        5: "Deadline exceeded",
-        6: "Invalid amount",
-      };
-      throw new Error(ROUTER_ERRORS[code] ?? `Contract error #${code}`);
-    }
-    throw new Error(msg);
+    throw new Error(friendlyContractError(sim.error ?? "", contractType));
   }
   const result = (sim as SorobanRpc.Api.SimulateTransactionSuccessResponse)
     .result;
@@ -154,7 +141,8 @@ async function executeContractTx(
   method: string,
   args: xdr.ScVal[],
   userAddress: string,
-  sign: SignFn
+  sign: SignFn,
+  contractType: ContractType = "pool"
 ): Promise<unknown> {
   const account = await rpc.getAccount(userAddress);
   const contract = new Contract(contractId);
@@ -169,7 +157,8 @@ async function executeContractTx(
 
   const sim = await rpc.simulateTransaction(tx);
   if (SorobanRpc.Api.isSimulationError(sim)) {
-    throw new Error(`Simulation failed: ${(sim as SorobanRpc.Api.SimulateTransactionErrorResponse).error}`);
+    const msg = (sim as SorobanRpc.Api.SimulateTransactionErrorResponse).error;
+    throw new Error(friendlyContractError(msg, contractType));
   }
 
   const assembled = SorobanRpc.assembleTransaction(tx, sim).build();
@@ -178,7 +167,8 @@ async function executeContractTx(
 
   const sendResult = await rpc.sendTransaction(signedTx);
   if (sendResult.status === "ERROR") {
-    throw new Error(`Submit failed: ${sendResult.errorResult?.toString() ?? "unknown"}`);
+    const msg = sendResult.errorResult?.toString() ?? "unknown";
+    throw new Error(friendlyContractError(msg, contractType));
   }
 
   const hash = sendResult.hash;
@@ -190,9 +180,11 @@ async function executeContractTx(
       if (success.returnValue) return scValToNative(success.returnValue);
       return null;
     }
-    if (result.status === "FAILED") throw new Error("Transaction failed on-chain");
+    if (result.status === "FAILED") {
+      throw new Error("Transaction failed on-chain — check your balance, slippage tolerance, and trustlines.");
+    }
   }
-  throw new Error("Transaction confirmation timeout");
+  throw new Error("Transaction confirmation timeout — it may still confirm; check your wallet history.");
 }
 
 export async function executeSwap(
@@ -272,7 +264,7 @@ export async function getRouterQuote(
     new Address(tokenOut).toScVal(),
     nativeToScVal(amountIn, { type: "i128" }),
   ];
-  const raw = (await simulateContractCall(routerAddress, "get_quote", args)) as {
+  const raw = (await simulateContractCall(routerAddress, "get_quote", args, "router")) as {
     amount_out: bigint;
     price_impact_bps: bigint;
     route: { hops: number; tokens: unknown[]; pools: unknown[]; expected_out: bigint };
@@ -310,13 +302,13 @@ export async function executeRouterSwap(
     nativeToScVal(minAmountOut, { type: "i128" }),
     nativeToScVal(deadlineLedger, { type: "u32" }),
   ];
-  await executeContractTx(routerAddress, "swap", args, userAddress, sign);
+  await executeContractTx(routerAddress, "swap", args, userAddress, sign, "router");
 }
 
 // ── Factory read ──────────────────────────────────────────────────────────────
 
 export async function getFactoryAllPools(factoryAddress: string): Promise<string[]> {
-  const raw = ((await simulateContractCall(factoryAddress, "get_all_pools", [])) as unknown[]) ?? [];
+  const raw = ((await simulateContractCall(factoryAddress, "get_all_pools", [], "factory")) as unknown[]) ?? [];
   return raw.map((v) => (typeof v === "string" ? v : (v as { toString(): string }).toString()));
 }
 
@@ -326,7 +318,7 @@ export async function getFactoryPool(
   tokenB: string
 ): Promise<string | null> {
   const args = [new Address(tokenA).toScVal(), new Address(tokenB).toScVal()];
-  const result = await simulateContractCall(factoryAddress, "get_pool", args);
+  const result = await simulateContractCall(factoryAddress, "get_pool", args, "factory");
   if (!result) return null;
   return typeof result === "string" ? result : (result as { toString(): string }).toString();
 }
@@ -347,7 +339,7 @@ export async function executeCreatePool(
     nativeToScVal(amp, { type: "u64" }),
     nativeToScVal(feeBps, { type: "u32" }),
   ];
-  const result = await executeContractTx(factoryAddress, "create_pool", args, creatorAddress, sign);
+  const result = await executeContractTx(factoryAddress, "create_pool", args, creatorAddress, sign, "factory");
   const addr = result as string;
   return typeof addr === "string" ? addr : (addr as { toString(): string }).toString();
 }
