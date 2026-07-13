@@ -15,6 +15,7 @@ import {
   scValToNative,
   Keypair,
 } from "@stellar/stellar-sdk";
+import { tokenSymbol } from "../src/lib/tokenSymbols";
 
 const RPC_URL = process.env.STELLAR_RPC_URL ?? "https://soroban-testnet.stellar.org";
 const rpc = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
@@ -37,15 +38,6 @@ async function simGetter(address: string, method: string): Promise<unknown> {
     throw new Error(`sim failed for ${method}: ${JSON.stringify((sim as SorobanRpc.Api.SimulateTransactionErrorResponse).error)}`);
   }
   return scValToNative(sim.result!.retval);
-}
-
-const KNOWN_SYMBOLS: Record<string, string> = {
-  [process.env.USDC_ADDRESS ?? ""]: "USDC",
-  [process.env.XLM_ADDRESS ?? ""]: "XLM",
-};
-
-function symbol(addr: string): string {
-  return KNOWN_SYMBOLS[addr] ?? addr.slice(0, 8);
 }
 
 async function seed() {
@@ -79,9 +71,9 @@ async function seed() {
          SET token_a=EXCLUDED.token_a, token_b=EXCLUDED.token_b,
              token_a_symbol=EXCLUDED.token_a_symbol, token_b_symbol=EXCLUDED.token_b_symbol,
              amp=EXCLUDED.amp, fee_bps=EXCLUDED.fee_bps`,
-        [address, tokenA, tokenB, symbol(tokenA), symbol(tokenB), Number(amp), Number(feeBps)]
+        [address, tokenA, tokenB, tokenSymbol(tokenA), tokenSymbol(tokenB), Number(amp), Number(feeBps)]
       );
-      console.log(`[seed] ✓ ${address}  ${symbol(tokenA)}/${symbol(tokenB)}  A=${amp}  fee=${feeBps}bps`);
+      console.log(`[seed] ✓ ${address}  ${tokenSymbol(tokenA)}/${tokenSymbol(tokenB)}  A=${amp}  fee=${feeBps}bps`);
     } catch (err) {
       console.warn(`[seed] ✗ ${address}: ${(err as Error).message}`);
     }
