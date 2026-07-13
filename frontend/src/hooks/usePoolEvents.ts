@@ -12,19 +12,6 @@ export interface PoolSwapEvent {
   data: Record<string, unknown>;
 }
 
-interface HorizonEffectsResponse {
-  _embedded: {
-    records: HorizonEffect[];
-  };
-}
-
-interface HorizonEffect {
-  id: string;
-  type: string;
-  created_at: string;
-  transaction_hash: string;
-}
-
 interface HorizonTransactionsResponse {
   _embedded: {
     records: HorizonTransaction[];
@@ -46,7 +33,6 @@ export function usePoolEvents(poolAddresses: string[]) {
   const [events, setEvents] = useState<PoolSwapEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cursorRef = useRef<string>("now");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(true);
 

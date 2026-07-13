@@ -1,14 +1,4 @@
-import {
-  rpc as SorobanRpc,
-  TransactionBuilder,
-  Networks,
-  Address,
-  nativeToScVal,
-  scValToNative,
-  xdr,
-  BASE_FEE,
-  Contract,
-} from "@stellar/stellar-sdk";
+import { rpc as SorobanRpc, Networks } from "@stellar/stellar-sdk";
 
 export const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK as "testnet" | "mainnet";
 export const RPC_URL = process.env.NEXT_PUBLIC_STELLAR_RPC_URL!;

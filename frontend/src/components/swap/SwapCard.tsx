@@ -2,7 +2,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { ArrowDownUp, AlertTriangle, ChevronDown, Check, Settings, Droplets, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { useRouterSwap } from "@/hooks/useRouterSwap";
 import { useWallet } from "@/hooks/useWallet";
@@ -12,6 +11,17 @@ import { ROUTER_ADDRESS, KNOWN_TOKENS, toStrobes, fromStrobes, PRECISION } from 
 import { executeRouterSwap, executeSwap, getCurrentLedger } from "@/lib/contract";
 import { POOLS } from "@/lib/stellar";
 import { onboarding } from "@/lib/onboarding";
+
+// Pulled out of the useMemo below as a plain function — a try/catch inline
+// in a memo callback makes the React Compiler bail out of optimizing it.
+function safeToStrobes(amount: string): bigint {
+  if (!amount) return 0n;
+  try {
+    return toStrobes(amount);
+  } catch {
+    return 0n;
+  }
+}
 
 const PRESET_SLIPPAGES = [
   { label: "0.1%", bps: 10n },
@@ -376,10 +386,7 @@ export function SwapCard() {
   const routeSymbols = useRouter ? routerQuote.routeSymbols : [];
 
   const amountOutRaw: bigint = useRouter ? (routerQuote.amountOutRaw ?? 0n) : 0n;
-  const amountInRaw: bigint = useMemo(() => {
-    if (!amountIn) return 0n;
-    try { return toStrobes(amountIn); } catch { return 0n; }
-  }, [amountIn]);
+  const amountInRaw: bigint = useMemo(() => safeToStrobes(amountIn), [amountIn]);
 
   const minReceivedFormatted = useMemo(() => {
     if (amountOutRaw === 0n) return "—";

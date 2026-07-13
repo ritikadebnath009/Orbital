@@ -28,6 +28,12 @@ export function GettingStarted() {
   const [swapped, setSwapped] = useState(false);
 
   useEffect(() => {
+    // Deliberately synchronous: these mirror localStorage, which doesn't
+    // exist during SSR (default state above already matches what
+    // onboarding.* returns server-side), so there's no async gap and no
+    // way to move this into a callback the lint rule would recognize
+    // without introducing a real hydration mismatch instead.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(onboarding.isDismissed());
     setFunded(onboarding.hasFunded());
     setSwapped(onboarding.hasSwapped());
