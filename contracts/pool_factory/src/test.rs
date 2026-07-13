@@ -4,10 +4,10 @@ extern crate std;
 use soroban_sdk::{
     testutils::Address as _,
     token::StellarAssetClient,
-    Address, BytesN, Env,
+    Address, Env,
 };
 
-use crate::{FactoryError, PoolFactory, PoolFactoryClient};
+use crate::{PoolFactory, PoolFactoryClient};
 
 // Import stable_pool contract WASM for deployment tests.
 // Requires `stellar contract build` to have been run first.
@@ -22,7 +22,7 @@ fn new_sac(env: &Env) -> Address {
     env.register_stellar_asset_contract_v2(admin).address()
 }
 
-fn deploy_factory(env: &Env) -> PoolFactoryClient {
+fn deploy_factory(env: &Env) -> PoolFactoryClient<'_> {
     let id = env.register(PoolFactory, ());
     PoolFactoryClient::new(env, &id)
 }
@@ -185,4 +185,50 @@ fn test_nonexistent_pool_returns_none() {
     let usdc = new_sac(&env);
     let usdt = new_sac(&env);
     assert!(factory.get_pool(&usdc, &usdt).is_none());
+}
+
+// ── HIGH-6: pause_all partial failure ───────────────────────────────────────────
+
+// Recommended by the audit's Test Coverage Analysis and never added. Injects
+// a broken pool entry (an address with no contract deployed there — nothing
+// short of tampering with storage directly can produce this through the
+// public API, since create_pool always deploys a real contract) alongside
+// two real, functioning pools, then confirms pause_all still pauses the real
+// pools and reports only the broken one as failed, instead of one bad entry
+// blocking or corrupting the whole operation.
+#[test]
+fn test_pause_all_reports_only_the_broken_pool() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let factory = deploy_factory(&env);
+    let admin = Address::generate(&env);
+    let wasm_hash = env.deployer().upload_contract_wasm(pool_wasm::WASM);
+    factory.initialize(&admin, &wasm_hash);
+
+    let creator = Address::generate(&env);
+    let usdc = new_sac(&env);
+    let usdt = new_sac(&env);
+    let eurc = new_sac(&env);
+
+    let pool1 = factory.create_pool(&creator, &usdc, &usdt, &100u64, &4u32);
+    let pool2 = factory.create_pool(&creator, &usdc, &eurc, &100u64, &4u32);
+
+    // Inject a broken third entry: a plausible-looking address with no
+    // contract code behind it, bypassing create_pool entirely.
+    let broken_token = new_sac(&env);
+    let broken_pool = Address::generate(&env);
+    env.as_contract(&factory.address, || {
+        crate::storage::write_pool_entry(&env, &usdt, &broken_token, &broken_pool, 100u64, 4u32, 2u32);
+    });
+    assert_eq!(factory.pool_count(), 3u32);
+
+    let failed = factory.pause_all();
+    assert_eq!(failed.len(), 1u32);
+    assert_eq!(failed.get(0).unwrap(), broken_pool);
+
+    // The two real pools were still paused despite the broken entry.
+    let p1 = pool_wasm::Client::new(&env, &pool1);
+    let p2 = pool_wasm::Client::new(&env, &pool2);
+    assert!(p1.is_paused());
+    assert!(p2.is_paused());
 }
