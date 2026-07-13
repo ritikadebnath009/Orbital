@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Droplets, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -25,7 +26,6 @@ import {
   getFeeBps,
   getVirtualPrice,
 } from "@/lib/contract";
-import { cn } from "@/lib/utils";
 
 const SLIPPAGE_BPS = 50n; // 0.5%
 
@@ -309,9 +309,9 @@ function LiquidityContent() {
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)" }}
           >
             No pools deployed yet.{" "}
-            <a href="/pools/create" style={{ color: "#b599e5" }} className="hover:opacity-75 transition-opacity">
+            <Link href="/pools/create" style={{ color: "#b599e5" }} className="hover:opacity-75 transition-opacity">
               Create one
-            </a>
+            </Link>
           </div>
         ) : null}
 
