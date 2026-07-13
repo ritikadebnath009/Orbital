@@ -8,7 +8,7 @@
 #   XLM  — Stellar native asset (SAC: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
 #
 # Prerequisites:
-#   1. stellar CLI ≥ 22.0.0 on PATH
+#   1. stellar CLI ≥ 23.4.1 on PATH (matches README's Installation Guide)
 #   2. orbital-deployer key exists and is funded:
 #        stellar keys generate orbital-deployer --network testnet --fund
 #   3. Deployer holds Circle testnet USDC (get from https://faucet.circle.com)
@@ -45,6 +45,37 @@ echo "════════════════════════�
 echo "  OrbitalDEX — Stellar Testnet Deployment"
 echo "  Pair: USDC (Circle) / XLM (native)"
 echo "═══════════════════════════════════════════════════"
+
+# ── 0. Pre-flight checks ──────────────────────────────────────────────────────
+# LOW-5: this script has no rollback for a deployment that fails partway
+# through (factory deployed but router isn't, say) — Stellar doesn't support
+# un-deploying a contract, so the only real mitigation is catching everything
+# preventable BEFORE any on-chain action happens, rather than discovering a
+# missing tool or wrong working directory several steps in.
+echo "[0/7] Pre-flight checks..."
+
+if [[ ! -f "contracts/Cargo.toml" ]]; then
+  echo "  ✗ contracts/Cargo.toml not found — run this script from the repo root." >&2
+  exit 1
+fi
+
+for tool in stellar curl python3; do
+  if ! command -v "$tool" > /dev/null 2>&1; then
+    echo "  ✗ '$tool' is required but not found on PATH." >&2
+    exit 1
+  fi
+done
+
+if ! stellar keys address "$DEPLOYER_KEY" > /dev/null 2>&1 && [[ "${1:-}" != "--fund" ]]; then
+  echo "  ✗ Deployer key '$DEPLOYER_KEY' doesn't exist yet." >&2
+  echo "    Run with --fund to generate + fund it, or create it first:" >&2
+  echo "      stellar keys generate $DEPLOYER_KEY --network $NETWORK --fund" >&2
+  exit 1
+fi
+
+echo "      ✓ Running from repo root"
+echo "      ✓ stellar, curl, python3 on PATH"
+echo "      ✓ Deployer key present"
 
 # ── 1. Deployer ───────────────────────────────────────────────────────────────
 if [[ "${1:-}" == "--fund" ]]; then
